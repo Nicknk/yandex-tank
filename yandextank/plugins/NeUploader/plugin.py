@@ -1,4 +1,3 @@
-""" Plugin uploading metrics from yhttps://wiki.yandex-team.ru/hr/gor/moebius/andextank to Luna. """
 import logging
 
 import pandas
@@ -41,7 +40,8 @@ class Plugin(AbstractPlugin, MonitoringDataListener):
         else:
             self.data_session = DataSession({'clients': self.clients_cfg})
             self.add_cleanup(self._cleanup)
-            self.data_session.update_job({'name': self.cfg.get('test_name')})
+            self.data_session.update_job({'name': self.cfg.get('test_name'),
+                                          '__type': 'tank'})
             self.col_map = {
                 'interval_real': self.data_session.new_true_metric,
                 'connect_time': self.data_session.new_true_metric,
@@ -153,16 +153,11 @@ class Plugin(AbstractPlugin, MonitoringDataListener):
         return df if case == '__overall__' else df.loc[df['tag'] == case]
 
     def map_uploader_tags(self, uploader_tags):
-        return dict(
-            [
-                ('component', uploader_tags.get('component')),
-                ('description', uploader_tags.get('job_dsc')),
-                ('name', uploader_tags.get('job_name', self.cfg.get('test_name'))),
-                ('person', uploader_tags.get('person')),
-                ('task', uploader_tags.get('task')),
-                ('version', uploader_tags.get('version')),
-                ('lunapark_jobno', uploader_tags.get('job_no'))
-            ] + [
-                (k, v) for k, v in uploader_tags.get('meta', {}).items()
-            ]
-        )
+        if not uploader_tags:
+            logger.info('No uploader metainfo found')
+            return {}
+        else:
+            meta_tags_names = ['component', 'description', 'name', 'person', 'task', 'version', 'lunapark_jobno']
+            meta_tags = {key: uploader_tags.get(key, self.cfg.get(key)) for key in meta_tags_names}
+            meta_tags.update({k: v for k, v in uploader_tags.get('meta', {}).items()})
+            return meta_tags
